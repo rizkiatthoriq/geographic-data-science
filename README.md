@@ -30,7 +30,7 @@ I’m a passionate data scientist with a strong focus on geographic data science
 ## 🔍 How to Use This Repository
 
 1. **Explore the Projects**: Each folder represents a unique project. Browse through to find examples and inspiration!
-2. **Run the Code**: Many of the notebooks can be run in Google Colab or a local Python environment, so feel free to dive in and try them out.
+2. **Run the Code**: Some of the notebooks can be run in Google Colab or a local Python environment, so feel free to dive in and try them out.
 3. **Collaborate**: I welcome feedback, suggestions, and collaboration. Feel free to reach out or open an issue if you have ideas or questions!
 
 ---
