@@ -116,8 +116,7 @@ This Python script provides a `PlotMatcherKNN` class designed to perform the cri
 
     # except (KeyError, ValueError, RuntimeError) as e:
     #     print(f"An error occurred: {e}")
-
-```
+    ```
 
 ### 5. Example Notebook
 
