@@ -122,6 +122,9 @@ This Python script provides a `PlotMatcherKNN` class designed to perform the cri
 
 For a practical demonstration of how to use this `PlotMatcherKNN` class, please refer to the example notebook:
 
-*   **`plot_matcher_usage_example.ipynb`**
+*   **[`plot_matcher_usage_example.ipynb`](https://github.com/rizkiatthoriq/geographic-data-science/blob/main/KNN%20for%20Pairing%20Plots%20with%20Historical%20Values/plot_matcher_usage_example.ipynb)**
 
 This notebook provides a step-by-step walkthrough with dummy data, illustrating how to load your DataFrames, initialize the `PlotMatcherKNN`, and interpret the results. It covers common scenarios and configurations.
+
+### 6. Licence
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/rizkiatthoriq/geographic-data-science/blob/b3655e8d186b08136191c90f86c4849f9530b8b8/KNN%20for%20Pairing%20Plots%20with%20Historical%20Values/LISENCE) file for details.
