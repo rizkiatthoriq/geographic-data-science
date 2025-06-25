@@ -18,6 +18,18 @@ class PlotMatcherKNN:
     def __init__(self, k: int = 3, id_col_labeled: str = 'PP ID', 
                  id_col_unlabeled: str = 'CP ID', metric: str = 'mahalanobis', 
                  use_scaler: bool = True):
+        """
+        Initializes the KNNSimilarityMatcher.
+
+        Args:
+            k (int): The number of nearest neighbors to find. Defaults to 3.
+            id_col_labeled (str): The name of the column containing unique IDs for labeled data.
+                                  Defaults to 'PP ID'.
+            id_col_unlabeled (str): The name of the column containing unique IDs for unlabeled data.
+                                    Defaults to 'CP ID'.
+            metric (str): The distance metric to use ('euclidean', 'mahalanobis'). Defaults to 'mahalanobis'.
+            use_scaler (bool): Whether to apply StandardScaler. Defaults to True.
+        """
         self.k = k
         self.id_col_labeled = id_col_labeled
         self.id_col_unlabeled = id_col_unlabeled
@@ -37,6 +49,7 @@ class PlotMatcherKNN:
         self.X_labeled_processed = None       
         
         self.cov_matrix_for_mahalanobis = None 
+        self.fitted = False # Track if fit was successful
 
     def _validate_inputs(self, df_labeled: pd.DataFrame, df_unlabeled: pd.DataFrame, historical_si_cols: list[str]):
         """Validates input DataFrames and column names."""
@@ -54,10 +67,15 @@ class PlotMatcherKNN:
 
     def _prepare_data(self, df_features: pd.DataFrame, is_unlabeled: bool):
         """Extracts features and applies scaling if configured."""
-        X = df_features.values
+        # Ensure df_features is a DataFrame before accessing columns
+        if not isinstance(df_features, pd.DataFrame):
+            raise TypeError("df_features must be a pandas DataFrame.")
+            
+        X = df_features[self.historical_si_cols].values
+        
         if self.use_scaler:
+            print("Applying StandardScaler...")
             if is_unlabeled:
-                print("Applying StandardScaler to unlabeled data...")
                 self.scaler = StandardScaler() 
                 processed_X = self.scaler.fit_transform(X)
                 self.X_unlabeled_processed = processed_X 
@@ -65,7 +83,6 @@ class PlotMatcherKNN:
             else: # is_labeled_to_match
                 if self.scaler is None:
                      raise RuntimeError("Scaler has not been fitted. Call fit() first.")
-                print("Applying fitted StandardScaler to labeled data...")
                 processed_X = self.scaler.transform(X)
                 self.X_labeled_processed = processed_X 
                 return processed_X
@@ -80,6 +97,10 @@ class PlotMatcherKNN:
         knn = None
         if self.metric == 'mahalanobis':
             try:
+                # Ensure X_unlabeled_scaled is not empty and has enough dimensions
+                if X_unlabeled_scaled.shape[0] < 2 or X_unlabeled_scaled.shape[1] < 2:
+                    raise ValueError("Mahalanobis distance requires at least 2 samples and 2 features.")
+                    
                 self.cov_matrix_for_mahalanobis = np.cov(X_unlabeled_scaled, rowvar=False)
                 if np.linalg.det(self.cov_matrix_for_mahalanobis) == 0:
                     print("Warning: Covariance matrix is singular. Adding regularization.")
@@ -105,7 +126,6 @@ class PlotMatcherKNN:
     def fit(self, df_labeled: pd.DataFrame, df_unlabeled: pd.DataFrame, historical_si_cols: list[str]):
         """
         Fits the KNN model using labeled project plots and unlabeled control plots.
-        Stores original dataframes and prepares data for model fitting.
 
         Args:
             df_labeled (pd.DataFrame): DataFrame of project plots.
@@ -113,44 +133,67 @@ class PlotMatcherKNN:
             historical_si_cols (list[str]): List of column names for historical SI values.
         """
         print("\n--- Fitting PlotMatcherKNN ---")
+        # Store historical columns before validation as it's used in validation
+        self.historical_si_cols = historical_si_cols 
+        
         if not self._validate_inputs(df_labeled, df_unlabeled, historical_si_cols):
+            self.fitted = False
             return
-
-        self.historical_si_cols = historical_si_cols
-        # Store ORIGINAL dataframes for later retrieval in transform
+            
+        self.fitted = True
+        # Store ORIGINAL dataframes for later retrieval
         self.df_unlabeled_original = df_unlabeled.copy()  
         self.df_labeled_original = df_labeled.copy()    
 
-        # Prepare (extract features and scale if needed) unlabeled data for fitting the model
+        # Adjust k if it's larger than the number of control plots
+        if self.k > len(df_unlabeled):
+            print(f"Warning: k ({self.k}) is greater than the number of control plots ({len(df_unlabeled)}). Setting k = {len(df_unlabeled)}.")
+            self.k = len(df_unlabeled)
+        
+        # Prepare and scale unlabeled data for fitting the model
         X_unlabeled_scaled = self._prepare_data(df_unlabeled[self.historical_si_cols], is_unlabeled=True)
         
         # Setup and fit the KNN model
         self._setup_knn_model(X_unlabeled_scaled)
         print("--- Fitting Complete ---")
 
-    def transform(self, df_labeled_to_match: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, df_labeled_to_match: pd.DataFrame = None) -> pd.DataFrame:
         """
         Finds the k-nearest neighbors for the labeled data.
 
+        If df_labeled_to_match is provided, it uses that data for matching.
+        Otherwise, it uses the labeled data provided during the fit() method (self.df_labeled_original).
+
         Args:
-            df_labeled_to_match (pd.DataFrame): DataFrame of project plots to match.
+            df_labeled_to_match (pd.DataFrame, optional): DataFrame of project plots to match.
+                                                         If None, uses data from fit().
 
         Returns:
             pd.DataFrame: DataFrame containing the matches.
         """
         print("\n--- Transforming (Finding Matches) ---")
-        if self.knn_model is None:
+        if self.knn_model is None or not self.fitted:
             raise RuntimeError("Model has not been fitted. Call fit() first.")
+        
+        # Determine which DataFrame to use for matching
+        if df_labeled_to_match is None:
+            if self.df_labeled_original is None:
+                 raise RuntimeError("No labeled data available for matching. Call fit() first.")
+            df_to_match = self.df_labeled_original
+            print("Using labeled data from fit() for matching.")
+        else:
+            df_to_match = df_labeled_to_match
+            print("Using provided labeled data for matching.")
         
         # Validate the data to be matched against the stored ORIGINAL unlabeled data
         if self.df_unlabeled_original is None or self.historical_si_cols is None:
              raise RuntimeError("fit() must be called before transform().")
              
-        if not self._validate_inputs(df_labeled_to_match, self.df_unlabeled_original, self.historical_si_cols):
+        if not self._validate_inputs(df_to_match, self.df_unlabeled_original, self.historical_si_cols):
             return pd.DataFrame()
 
         # Prepare the data to be matched (project plots)
-        X_to_match_scaled = self._prepare_data(df_labeled_to_match[self.historical_si_cols], is_unlabeled=False)
+        X_to_match_scaled = self._prepare_data(df_to_match[self.historical_si_cols], is_unlabeled=False)
 
         # Find neighbors using the fitted KNN model
         print(f"Finding {self.k} nearest neighbors...")
@@ -158,12 +201,12 @@ class PlotMatcherKNN:
 
         # Construct the results DataFrame
         results = []
-        for i in range(len(df_labeled_to_match)):
-            label_id = df_labeled_to_match.iloc[i][self.id_col_labeled]
+        for i in range(len(df_to_match)):
+            label_id = df_to_match.iloc[i][self.id_col_labeled]
             neighbor_indices = indices[i]
             
-            # <<< PERBAIKAN FINAL DAN UTAMA DI SINI >>>
-            # Akses DataFrame kontrol plot ASLI melalui atribut class `self`
+            # <<< PERBAIKAN UTAMA DI SINI >>>
+            # Akses DataFrame CONTROL PLOT ASLI menggunakan atribut class `self.df_unlabeled_original`
             nearest_neighbors_data = self.df_unlabeled_original.iloc[neighbor_indices].copy()
             
             nearest_neighbors_data['Matched_PP_ID'] = label_id
@@ -189,8 +232,9 @@ class PlotMatcherKNN:
             pd.DataFrame: DataFrame containing the matches.
         """
         print("\n--- Performing fit_transform ---")
-        # Fit the model using the provided labeled and unlabeled data
         self.fit(df_labeled, df_unlabeled, historical_si_cols)
+        if not self.fitted: # If fit failed (e.g., validation error)
+            return pd.DataFrame()
         
-        # After fitting, call transform using the same labeled data that was used for fitting.
+        # For fit_transform, we match the same labeled data used for fitting
         return self.transform(df_labeled_to_match=df_labeled)
