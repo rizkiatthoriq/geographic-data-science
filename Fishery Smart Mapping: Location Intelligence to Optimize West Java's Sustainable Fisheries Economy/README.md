@@ -8,3 +8,4 @@ Thanks to [Muhammad Fiqri Abdi Rabbi](https://www.linkedin.com/in/muhammad-fiqri
 
 # Full Manuscript
 can be found on this [link](https://docs.google.com/document/d/109isML6r1oMWTyDVpA1lzvFB41inRQS9AddyGapZXms/edit?usp=sharing)(in Bahasa Indonesia only) and the [presentation](https://docs.google.com/presentation/d/16oA1zXrUypx_a2_Akrje1Vqrvd3hvfvgw3y2P0Q2eoU/edit?usp=sharing) (In Bahasa Indonesia)
+, [presentation](https://docs.google.com/presentation/d/1F5CoGvVAhqX_BpJzL32AyJUF6t71jZ9AJ-1Y47vSwwk/edit?usp=sharing) (In English).
